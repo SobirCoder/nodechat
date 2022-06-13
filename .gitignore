@@ -1,0 +1,5 @@
+node_modules/
+dist/
+src/upload
+src/.env
+sessions

@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+    <title>P2P</title>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css">
+</head>
+  <body>
+    <div class="container">
+      <div class="d-flex pb-5">
+        <div class="p-2"><a href="/search">Search Users</a></div>
+      </div>
+      <div class="p-2 text-center col-sm-12 col-sm-offset-3 border border-primary">
+        <h2>Notifications</h2>
+        <div class="text-center" style="height: 250px; width: 300px; overflow-y: scroll;" id="notifications"></div>
+      </div>
+      <div class="col-sm-12 col-sm-offset-3 border border-primary" id="chats">
+        <% for(var i = 0; i < p2p_chats.length; i++) { %>
+          <div class="mt-1">
+            <%= p2p_chats[i].name %>
+            <span class="p-2" id="<%= p2p_chats[i].user_id %>_status">(<%= p2p_chats[i].status %>)</span>
+            <a href="/p2p/<%= p2p_chats[i].user_id %>">See old messages & Message</a>
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+    <script type="text/javascript" src="/js/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript"  src="/js/socket.io.js"></script>
+    <script type="text/javascript">
+      const socket = io();
+      const user = <%- JSON.stringify(user) %>,
+            p2p_chats = <%- JSON.stringify(p2p_chats) %>;
+
+      function getNotificationElement(sender_name, msg_type, sent_at) {
+        return $(`<div class="text-success">${ sender_name } sent you ${ msg_type == 'T' ? 'message' : 'file' } at ${ sent_at }</div>`);
+      }
+
+      socket.emit('credentials', { user_id: user.id, page: 'chats' });
+
+      socket.on('new_message', (data) => {
+        $('#notifications').prepend(getNotificationElement(data.sender_name, data.msg_type, data.sent_at));
+        if (!p2p_chats.some(x => x.user_id == data.sender_id)) {
+          let div = $('<div class="mt-1"></div>');
+          div.append(data.sender_name, $(`<span id="${ data.sender_id }_status">(online)</span>`),
+                     $(`<a href="/p2p/${ data.sender_id }">See old messages & Message</a>`));
+          $('#chats').append(div);
+        }
+      });
+
+      socket.on('notifications', (notifications) => {
+        for(let n of notifications) {
+          $('#notifications').prepend(getNotificationElement(n.sender_name, n.msg_type, n.sent_at));
+        }
+      });
+
+      socket.on('online', data => $('#' + data.user_id + '_status').text('(online)'));
+      socket.on('offline', data => $('#' + data.user_id + '_status').text('(offline)'));
+    </script>
+  </body>
+</html>

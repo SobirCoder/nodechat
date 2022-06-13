@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+    <title>P2P</title>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css">
+</head>
+  <body>
+    <div class="container">
+      <div class="d-flex pb-5">
+        <div class="p-2"><a href="/chats">Chats</a></div>
+      </div>
+      <div class="p-2 text-center col-sm-12 col-sm-offset-3 border border-primary">
+        <h2>Notifications</h2>
+        <div class="text-center" style="height: 250px; width: 300px; overflow-y: scroll;" id="notifications"></div>
+      </div>
+      <div class="col-sm-8 col-sm-offset-3 border border-primary">
+        <div class="row">
+          <div class="col-sm-10"><input type="text" class="form-control" id="name" name="name"></div>
+          <div class="col-sm-2"><button id="send" class="btn btn-warning btn-lg">Search</button></div>
+        </div>
+        <div id="result">
+        </div>
+      </div>
+    </div>
+
+    <script type="text/javascript" src="/js/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript"  src="/js/socket.io.js"></script>
+    <script type="text/javascript">
+      const socket = io();
+      const user = <%- JSON.stringify(user) %>;
+
+      $(document).ready(() => {
+        $('#send').on('click', async (event) => {
+          let name = $('#name').val();
+          if (!name) return;
+          let res = await fetch('/search', { method: 'POST',  
+                                            headers: {'Content-Type': 'application/json'}, 
+                                            body: JSON.stringify({ name })});
+          let users = await res.json() || [];
+          if (!users.length) return;
+          $('#result').children().remove();
+          for(let u of users) {
+            let div = $('<div class="mt-1"></div>');
+            div.append(u.name, $(`<span id="${ u.id }_status">(${ u.status })</span>`),
+                      $(`<a href="/p2p/${ u.id }">See old messages & Message</a>`));
+            $('#result').append(div);
+          }
+        });
+      });
+
+
+      function getNotificationElement(sender_name, msg_type, sent_at) {
+        return $(`<div class="text-success">${ sender_name } sent you ${ msg_type == 'T' ? 'message' : 'file' } at ${ sent_at }</div>`);
+      }
+
+      socket.emit('credentials', { user_id: user.id, page: 'search' });
+
+      socket.on('new_message', (data) => {
+        $('#notifications').prepend(getNotificationElement(data.sender_name, data.msg_type, data.sent_at));
+      });
+
+      socket.on('notifications', (notifications) => {
+        for(let n of notifications) {
+          $('#notifications').prepend(getNotificationElement(n.sender_name, n.msg_type, n.sent_at));
+        }
+      });
+
+      socket.on('online', data => $('#' + data.user_id + '_status').text('(online)'));
+      socket.on('offline', data => $('#' + data.user_id + '_status').text('(offline)'));
+    </script>
+  </body>
+</html>

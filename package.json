@@ -1,0 +1,53 @@
+{
+  "name": "nodechat",
+  "version": "1.1.1",
+  "description": "Simple application for messaging and file sharing with notification capability",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "cd ./dist && node app.js",
+    "clean": "rimraf dist/",
+    "copy-files": "copyfiles -u 1 src/**/*.ejs src/**/*.db src/**/.env src/**/*.sql src/**/*.js dist/",
+    "build": "yarn clean && yarn copy-files && tsc"
+  },
+  "keywords": [
+    "node.js",
+    "typescript",
+    "messenger"
+  ],
+  "author": "SobirCoder",
+  "license": "ISC",
+  "dependencies": {
+    "@types/connect-sqlite3": "^0.9.1",
+    "@types/cookie-parser": "^1.4.3",
+    "@types/csurf": "^1.11.2",
+    "@types/express-session": "^1.17.4",
+    "@types/multer": "^1.4.7",
+    "@types/passport": "^1.0.8",
+    "@types/passport-local": "^1.0.34",
+    "@types/pg": "^8.6.5",
+    "@types/socket.io": "^3.0.2",
+    "@types/underscore": "^1.11.4",
+    "connect-sqlite3": "^0.9.13",
+    "cookie-parser": "^1.4.6",
+    "csurf": "^1.11.0",
+    "dotenv": "^16.0.1",
+    "ejs": "^3.1.8",
+    "express": "^4.18.1",
+    "express-session": "^1.17.3",
+    "moment": "^2.29.3",
+    "multer": "^1.4.5-lts.1",
+    "passport": "^0.6.0",
+    "passport-local": "^1.0.0",
+    "pg": "^8.7.3",
+    "socket.io": "^4.5.1",
+    "underscore": "^1.13.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.13",
+    "@types/node": "^17.0.40",
+    "copyfiles": "^2.4.1",
+    "morgan": "^1.10.0",
+    "rimraf": "^3.0.2"
+  }
+}

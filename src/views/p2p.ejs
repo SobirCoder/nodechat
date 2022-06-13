@@ -1,0 +1,143 @@
+<!doctype html>
+<html>
+<head>
+    <title>Chats</title>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.js"></script>
+</head>
+  <body>
+    <div class="container">
+      <div class="d-flex pb-5">
+        <div class="p-2"><a href="/search">Search Users</a></div>
+        <div class="p-2"><a href="/chats">Chats</a></div>
+      </div>
+      <div class="p-2 text-center col-sm-12 col-sm-offset-3 border border-primary">
+        <h2>Notifications</h2>
+        <div class="text-center" style="height: 250px; width: 300px; overflow-y: scroll;" id="notifications"></div>
+      </div>
+      <div class="col-sm-8 col-sm-offset-2">
+        <div class="p-1 border border-primary">
+          <%= peer_user.name %><span id="<%= peer_user.id %>_status">(<%= peer_user.status %>)</span>
+        </div>
+        <div class="mt-2 p-2 border" style="height: 300px; overflow-y: scroll;">
+          <div class="p-1 border border-secondary" id="messages">
+          </div>
+        </div>
+        <div class="d-flex flex-row">
+          <div class="form-group">
+            <input type="text" class="form-control" id="msg" name="msg">
+          </div>
+          <div style="word-wrap: anywhere;" id="file">choose file</div>
+          <input type="file" id="fileinput" onchange="fileChange(event)" />
+          <button id="send" class="btn btn-warning btn-lg">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="text/javascript" src="/js/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript"  src="/js/socket.io.js"></script>
+    <script type="text/javascript"  src="/js/moment.min.js"></script>
+    <script type="text/javascript">
+
+      function msgElement(data) {
+        let elem = $(`<div style="background-color: ${ data.sender_id == peer_user.id ? 'cyan': 'lightgreen' }"></div>`);
+        elem.append($('<span style="font-weight: bold;"></span>').text(data.sender_id == peer_user.id ? peer_user.name: 'you'), `(${ data.sent_at }): `);
+        if (data.msg_type == 'T') {
+          elem.append(`${ data.msg }`);
+        } else {
+          elem.append($('<span style="font-weight: bold;"></span>').text(data.file_name));
+          if (data.sender_id == peer_user.id) {
+            let download_elem = $(`<span style="margin-left: 1em; color: #069; text-decoration: underline; cursor: pointer;">download</span>`);
+            download_elem.on('click', download);
+            download_elem.attr('file_id', data.file_id);
+            elem.append(download_elem);
+          }
+        }
+
+        return elem;
+      }
+
+      const socket = io();
+      const user = <%- JSON.stringify(user) %>,
+            peer_user = <%- JSON.stringify(peer_user) %>, 
+            p2p_messages = <%- JSON.stringify(p2p_messages) %>,
+            file = {};
+      
+      $(document).ready(() => {
+        let fileElement = $('#fileinput');
+        $('#send').on('click', (event) => {
+          let msg = $('#msg').val().trim(), now = moment().format('DD.MM.YYYY HH:mm');
+          let data = { sender_id: user.id, receiver_id: peer_user.id, sender_name: user.name };
+          if (msg) {
+            data.msg = msg;
+            data.msg_type = 'T';
+            socket.emit('new_message', data);
+            $('#messages').append(msgElement({ sender_id: user.id, msg_type: 'T', msg, sent_at: now }));
+          } else if (fileElement.attr('file_id')) {
+            data.msg_type = 'F';
+            data.file_id = fileElement.attr('file_id');
+            data.file_name = fileElement[0].files[0].name;
+            socket.emit('new_message', data);
+            $('#messages').append(msgElement({ sender_id: user.id, msg_type: 'F', file_name: data.file_name, sent_at: now }));
+            fileElement.attr('file_id', '');
+            fileElement.val('');
+          }
+        });
+
+        for (let m of p2p_messages) {
+          $('#messages').append(msgElement(m));
+        }
+      });
+
+      function getNotificationElement(sender_name, msg_type, sent_at) {
+        return $(`<div class="text-success">${ sender_name } sent you ${  msg_type == 'T' ? 'message' : 'file' } at ${ sent_at }</div>`);
+      }
+
+      async function upload(uploadFile) {
+        $('#file').text(uploadFile.name);
+        
+        let formData = new FormData();
+        formData.append("file", uploadFile, uploadFile.name);
+        let ftch = await fetch("/file_upload", { method: "POST", body: formData });
+        let res = await ftch.json();
+        $('#fileinput').first().attr('file_id', res.file_id);
+      }
+
+      async function fileChange(event) {
+        let uploadedFile = event.target.files[0];
+        if (uploadedFile)
+          await upload(uploadedFile);
+        else {
+          $('#file').text('choose file');
+          file = {};
+        }
+      }
+
+      function download(event) {
+        let file_id = $(event.target).attr('file_id');
+        window.open('/file_download?file_id=' + file_id);
+      }
+
+      socket.emit('credentials', { user_id: user.id, page: 'p2p', peer_id: peer_user.id });
+      socket.emit('received', { sender_id: peer_user.id, receiver_id: user.id });
+
+      socket.on('new_message', (data) => {
+        if (data.sender_id != peer_user.id)
+          $('#notifications').prepend(getNotificationElement(data.sender_name, data.msg_type, data.sent_at));
+        else {
+          $('#messages').append(msgElement(data));
+        }
+      });
+
+      socket.on('notifications', (notifications) => {
+        for(let n of notifications) {
+          if (n.sender_id == peer_user.id) continue;
+          $('#notifications').prepend(getNotificationElement(n.sender_name, n.msg_type, n.sent_at));
+        }
+      });
+
+      socket.on('online', data => {  $('#' + data.user_id + '_status').text('(online)'); });
+      socket.on('offline', data => $('#' + data.user_id + '_status').text('(offline)'));
+    </script>
+  </body>
+</html>
